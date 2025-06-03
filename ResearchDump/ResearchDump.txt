@@ -1,0 +1,11 @@
+## ResearchDump
+## Title: ResearchDump
+## APIVersion: 101046
+## Version: 1.5
+## Author: @GnarTheMonkey
+## Description: Dumps missing research traits and researchable items using native ESO API. Includes multi-character shopping list functionality and GUI window for easy copying.
+## SavedVariables: ResearchDumpSavedVars
+
+ResearchDump.xml
+Bindings.xml
+ResearchDump.lua

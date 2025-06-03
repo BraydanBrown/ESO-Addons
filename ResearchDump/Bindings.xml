@@ -1,0 +1,7 @@
+<Bindings>
+    <Category name="RESEARCH_DUMP">
+        <Action name="RESEARCH_DUMP_TOGGLE">
+            <Down>ResearchDump_ToggleShoppingList()</Down>
+        </Action>
+    </Category>
+</Bindings>

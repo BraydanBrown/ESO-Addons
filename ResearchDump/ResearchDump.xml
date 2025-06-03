@@ -1,0 +1,161 @@
+<GuiXml>
+    <Controls>
+        <!-- Keybind definitions -->
+        <Control name="ResearchDumpKeybinds" virtual="true">
+            <OnInitialized>
+                ZO_CreateStringId("SI_BINDING_NAME_RESEARCH_DUMP_TOGGLE", "Toggle Research Shopping List")
+            </OnInitialized>
+        </Control>    
+        <TopLevelControl name="ResearchDumpWindow" movable="true" mouseEnabled="true" clampedToScreen="true" hidden="true" resizeHandleSize="16">
+            <Dimensions x="900" y="400"/>
+            <DimensionConstraints minX="600" minY="300" maxX="1400" maxY="1400"/>
+            <Anchor point="CENTER" relativeTo="GuiRoot"/>
+            <OnResizeStart>ResearchDump_OnResizeStart()</OnResizeStart>
+            <OnResizeStop>ResearchDump_OnResizeStop()</OnResizeStop>
+            
+            <Controls>
+                <!-- Window Background -->
+                <Backdrop name="$(parent)BG" centerColor="000000" edgeColor="666666">
+                    <AnchorFill/>
+                    <Edge edgeSize="2"/>
+                </Backdrop>
+                
+                <!-- Title Bar -->
+                <Backdrop name="$(parent)TitleBar" centerColor="333355" edgeColor="666666">
+                    <Anchor point="TOPLEFT"/>
+                    <Anchor point="TOPRIGHT"/>
+                    <Dimensions y="30"/>
+                    <Edge edgeSize="1"/>
+                    
+                    <Controls>                        <!-- Title Text -->
+                        <Label name="$(parent)Title" font="ZoFontWinH4" color="FFFFFF" horizontalAlignment="TEXT_ALIGN_CENTER" text="ResearchDump - Shopping List">
+                            <Anchor point="CENTER"/>
+                        </Label>
+                          <!-- Close Button -->
+                        <Button name="$(parent)CloseButton">
+                            <Anchor point="RIGHT" offsetX="-5"/>
+                            <Dimensions x="20" y="20"/>
+                            <Textures normal="EsoUI/Art/Buttons/decline_up.dds" 
+                                     pressed="EsoUI/Art/Buttons/decline_down.dds" 
+                                     mouseOver="EsoUI/Art/Buttons/decline_over.dds"/>
+                            <OnClicked>ResearchDump_CloseWindow()</OnClicked>
+                        </Button>
+                    </Controls>
+                </Backdrop>
+                
+                <!-- Scroll Container -->
+                <Backdrop name="$(parent)ScrollContainer" centerColor="000000" edgeColor="333333" inherits="ZO_ScrollContainerBase">
+                    <Anchor point="TOPLEFT" relativeTo="$(parent)TitleBar" relativePoint="BOTTOMLEFT" offsetX="10" offsetY="10"/>
+                    <Anchor point="BOTTOMRIGHT" offsetX="-10" offsetY="-40"/>
+                    <Edge edgeSize="1"/>
+                    <OnInitialized>ZO_Scroll_Initialize(self)</OnInitialized>
+                    
+                    <Controls>                        <!-- Scroll Child Container -->
+                        <Control name="$(parent)ScrollChild">
+                            <OnInitialized>self:SetParent(self:GetParent():GetNamedChild("Scroll"));self:SetAnchor(TOPLEFT,nil,TOPLEFT,0,0)</OnInitialized>
+                              <Controls>
+                                <!-- Column Container -->
+                                <Control name="$(parent)ColumnContainer">
+                                    <Anchor point="TOPLEFT"/>
+                                    <Dimensions x="880" y="800"/>
+                                    
+                                    <Controls>
+                                        <!-- Blacksmithing Column -->
+                                        <Control name="$(parent)BlacksmithingColumn">
+                                            <Anchor point="TOPLEFT" offsetX="0" offsetY="0"/>
+                                            <Dimensions x="220" y="800"/>
+                                            
+                                            <Controls>
+                                                <Label name="$(parent)Header" font="ZoFontWinH4" color="FFFF00" 
+                                                       horizontalAlignment="TEXT_ALIGN_CENTER" text="Blacksmithing">
+                                                    <Anchor point="TOPLEFT" offsetX="0" offsetY="5"/>
+                                                    <Anchor point="TOPRIGHT" offsetX="0" offsetY="5"/>
+                                                </Label>
+                                                
+                                                <EditBox name="$(parent)TextArea" font="ZoFontGameBold" color="FFFFFF" 
+                                                         inherits="ZO_DefaultEditMultiLineForBackdrop" 
+                                                         maxInputCharacters="50000" editEnabled="false">
+                                                    <Anchor point="TOPLEFT" relativeTo="$(parent)Header" relativePoint="BOTTOMLEFT" offsetX="0" offsetY="5"/>
+                                                    <Anchor point="BOTTOMRIGHT" offsetX="0" offsetY="0"/>
+                                                </EditBox>
+                                            </Controls>
+                                        </Control>
+                                        
+                                        <!-- Clothier Column -->
+                                        <Control name="$(parent)ClothierColumn">
+                                            <Anchor point="TOPLEFT" offsetX="220" offsetY="0"/>
+                                            <Dimensions x="220" y="800"/>
+                                            
+                                            <Controls>
+                                                <Label name="$(parent)Header" font="ZoFontWinH4" color="FFFF00" 
+                                                       horizontalAlignment="TEXT_ALIGN_CENTER" text="Clothier">
+                                                    <Anchor point="TOPLEFT" offsetX="0" offsetY="5"/>
+                                                    <Anchor point="TOPRIGHT" offsetX="0" offsetY="5"/>
+                                                </Label>
+                                                
+                                                <EditBox name="$(parent)TextArea" font="ZoFontGameBold" color="FFFFFF" 
+                                                         inherits="ZO_DefaultEditMultiLineForBackdrop" 
+                                                         maxInputCharacters="50000" editEnabled="false">
+                                                    <Anchor point="TOPLEFT" relativeTo="$(parent)Header" relativePoint="BOTTOMLEFT" offsetX="0" offsetY="5"/>
+                                                    <Anchor point="BOTTOMRIGHT" offsetX="0" offsetY="0"/>
+                                                </EditBox>
+                                            </Controls>
+                                        </Control>
+                                        
+                                        <!-- Woodworking Column -->
+                                        <Control name="$(parent)WoodworkingColumn">
+                                            <Anchor point="TOPLEFT" offsetX="440" offsetY="0"/>
+                                            <Dimensions x="220" y="800"/>
+                                            
+                                            <Controls>
+                                                <Label name="$(parent)Header" font="ZoFontWinH4" color="FFFF00" 
+                                                       horizontalAlignment="TEXT_ALIGN_CENTER" text="Woodworking">
+                                                    <Anchor point="TOPLEFT" offsetX="0" offsetY="5"/>
+                                                    <Anchor point="TOPRIGHT" offsetX="0" offsetY="5"/>
+                                                </Label>
+                                                
+                                                <EditBox name="$(parent)TextArea" font="ZoFontGameBold" color="FFFFFF" 
+                                                         inherits="ZO_DefaultEditMultiLineForBackdrop" 
+                                                         maxInputCharacters="50000" editEnabled="false">
+                                                    <Anchor point="TOPLEFT" relativeTo="$(parent)Header" relativePoint="BOTTOMLEFT" offsetX="0" offsetY="5"/>
+                                                    <Anchor point="BOTTOMRIGHT" offsetX="0" offsetY="0"/>
+                                                </EditBox>
+                                            </Controls>
+                                        </Control>
+                                        
+                                        <!-- Jewelry Crafting Column -->
+                                        <Control name="$(parent)JewelryColumn">
+                                            <Anchor point="TOPLEFT" offsetX="660" offsetY="0"/>
+                                            <Dimensions x="220" y="800"/>
+                                            
+                                            <Controls>
+                                                <Label name="$(parent)Header" font="ZoFontWinH4" color="FFFF00" 
+                                                       horizontalAlignment="TEXT_ALIGN_CENTER" text="Jewelry Crafting">
+                                                    <Anchor point="TOPLEFT" offsetX="0" offsetY="5"/>
+                                                    <Anchor point="TOPRIGHT" offsetX="0" offsetY="5"/>
+                                                </Label>
+                                                
+                                                <EditBox name="$(parent)TextArea" font="ZoFontGameBold" color="FFFFFF" 
+                                                         inherits="ZO_DefaultEditMultiLineForBackdrop" 
+                                                         maxInputCharacters="50000" editEnabled="false">
+                                                    <Anchor point="TOPLEFT" relativeTo="$(parent)Header" relativePoint="BOTTOMLEFT" offsetX="0" offsetY="5"/>
+                                                    <Anchor point="BOTTOMRIGHT" offsetX="0" offsetY="0"/>
+                                                </EditBox>
+                                            </Controls>
+                                        </Control>
+                                    </Controls>
+                                </Control>
+                            </Controls>
+                        </Control>
+                    </Controls>
+                </Backdrop>
+                
+                <!-- Resize Handle -->
+                <Texture name="$(parent)ResizeHandle" textureFile="EsoUI/Art/Miscellaneous/resizeHandle.dds">
+                    <Anchor point="BOTTOMRIGHT" offsetX="-2" offsetY="-2"/>
+                    <Dimensions x="16" y="16"/>
+                </Texture>
+            </Controls>
+        </TopLevelControl>
+    </Controls>
+</GuiXml>
