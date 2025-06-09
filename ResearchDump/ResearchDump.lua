@@ -1,12 +1,25 @@
 --[[  
   ResearchDump.lua  
-  Version 1.5 - Multi-Character Shopping List with GUI
-  Dumps missing research info to chat using native ESO API only.  
+  Version 1.5 - Cleaned Version with Essential Features Only
+  Supports only craftgui, craftguiexpanding, and shopping commands
 --]]
 
 -- Initialize addon namespace
 ResearchDump = ResearchDump or {}
 ResearchDump.columnData = {}
+
+-- Helper function to process character names and remove the first @ character
+local function ProcessCharacterName(fullName)
+    if not fullName then return "" end
+    
+    -- Find the first @ character and remove it along with everything before it
+    local atPos = string.find(fullName, "@")
+    if atPos then
+        return string.sub(fullName, atPos + 1)
+    end
+    
+    return fullName
+end
 
 -- Wait for addon to be loaded
 local function OnAddOnLoaded(eventCode, addonName)
@@ -16,30 +29,17 @@ local function OnAddOnLoaded(eventCode, addonName)
     -- Initialize SavedVariables
     ResearchDumpSavedVars = ResearchDumpSavedVars or {}
     ResearchDumpSavedVars.researchData = ResearchDumpSavedVars.researchData or {}
-    ResearchDumpSavedVars.exportData = ResearchDumpSavedVars.exportData or {}
     
     -- Get current character name
     local currentPlayer = GetDisplayName() .. " @" .. GetUnitName("player")
     
     -- Update research data for current character
     UpdateCurrentCharacterResearchData(currentPlayer)
-    
-    -- Initialize GUI
+      -- Initialize GUI
     ResearchDumpUI.CreateWindow()
-    
-    d("|c00FF00ResearchDump loaded successfully!|r Use /dumpresearch to see missing traits.")
 end
 
 EVENT_MANAGER:RegisterForEvent("ResearchDump", EVENT_ADD_ON_LOADED, OnAddOnLoaded)
-
--- Keybind function for toggling shopping list
-function ResearchDump_ToggleShoppingList()
-    if ResearchDumpUI and ResearchDumpUI.Toggle then
-        ResearchDumpUI.Toggle()
-    else
-        d("|cFF0000Error: ResearchDumpUI not initialized properly.|r")
-    end
-end
 
 -- Function to update research data for the current character
 function UpdateCurrentCharacterResearchData(playerName)
@@ -74,26 +74,18 @@ local function GenerateShoppingList(exportMode)
     local results = {}
     local shoppingList = {}
     
-    if not exportMode then
-        d("=== Multi-Character Research Shopping List ===")
-    else
-        table.insert(results, "=== Multi-Character Research Shopping List ===")
-        table.insert(results, "Generated: " .. GetDateStringFromTimestamp(GetTimeStamp()))
-        table.insert(results, "")
-    end
+    -- Always build results for potential GUI display
+    table.insert(results, "=== Multi-Character Research Shopping List ===")
+    table.insert(results, "Generated: " .. GetDateStringFromTimestamp(GetTimeStamp()))
+    table.insert(results, "")
     
     -- Check if we have any character data
     if not ResearchDumpSavedVars.researchData or next(ResearchDumpSavedVars.researchData) == nil then
         local noDataText = "No character research data found. Please log in with each character first."
-        if not exportMode then
-            d(noDataText)
-        else
-            table.insert(results, noDataText)
-        end
+        table.insert(results, noDataText)
         return results
     end
     
-    -- Analyze missing traits across all characters
     local craftingTypes = {
         { type = CRAFTING_TYPE_BLACKSMITHING, name = "Blacksmithing", key = "blacksmithing" },
         { type = CRAFTING_TYPE_CLOTHIER, name = "Clothier", key = "clothier" },
@@ -101,467 +93,452 @@ local function GenerateShoppingList(exportMode)
         { type = CRAFTING_TYPE_JEWELRYCRAFTING, name = "Jewelry Crafting", key = "jewelry" }
     }
     
-    -- Group items by crafting type for better organization
+    -- Initialize data structures
     local craftGroups = {}
     for _, craft in ipairs(craftingTypes) do
-        craftGroups[craft.key] = { 
-            name = craft.name, 
-            items = {},
-            content = {}
+        craftGroups[craft.key] = {
+            name = craft.name,
+            items = {}
         }
     end
     
-    -- Analyze all traits for all crafting types
-    for _, craft in ipairs(craftingTypes) do
-        local numLines = GetNumSmithingResearchLines(craft.type)
-        for lineIndex = 1, numLines do
-            local lineName = GetSmithingResearchLineInfo(craft.type, lineIndex)
+    -- Collect missing traits across all characters
+    for playerName, researchData in pairs(ResearchDumpSavedVars.researchData) do
+        for _, craft in ipairs(craftingTypes) do
+            local numLines = GetNumSmithingResearchLines(craft.type)
             
-            for traitIndex = 1, 9 do
-                local neededCount = 0
-                local charactersList = {}
+            for lineIndex = 1, numLines do
+                local lineName = GetSmithingResearchLineInfo(craft.type, lineIndex)
                 
-                -- Check all characters for this trait
-                for playerName, researchData in pairs(ResearchDumpSavedVars.researchData) do
+                for traitIndex = 1, 9 do
                     if researchData[craft.type] and 
                        researchData[craft.type][lineIndex] and 
                        researchData[craft.type][lineIndex][traitIndex] == false then
-                        neededCount = neededCount + 1
-                        table.insert(charactersList, playerName)
-                    end
-                end
-                
-                -- If characters need this trait, add to appropriate craft group
-                if neededCount > 0 then
-                    local traitType = GetSmithingResearchLineTraitInfo(craft.type, lineIndex, traitIndex)
-                    local traitName = GetString("SI_ITEMTRAITTYPE", traitType)
-                    
-                    if traitName and not string.find(traitName, "<<") then
-                        table.insert(craftGroups[craft.key].items, {
-                            name = lineName .. " - " .. traitName,
-                            count = neededCount,
-                            characters = charactersList
-                        })
-                    end
-                end
-            end
-        end
-        
-        -- Sort items within each craft type by count (highest first), then by name
-        table.sort(craftGroups[craft.key].items, function(a, b)
-            if a.count == b.count then
-                return a.name < b.name
-            end
-            return a.count > b.count
-        end)
-        
-        -- Generate content for this craft group
-        local content = {}
-        for _, item in ipairs(craftGroups[craft.key].items) do
-            table.insert(content, string.format("%dx %s", item.count, item.name))
-        end
-        
-        if #content == 0 then
-            table.insert(content, "No items needed!")
-        end
-        
-        craftGroups[craft.key].content = content
-    end
-    
-    -- Store results for UI display
-    ResearchDump.columnData = craftGroups
-    
-    -- For export mode, create formatted output
-    if exportMode then
-        for _, craft in ipairs(craftingTypes) do
-            local group = craftGroups[craft.key]
-            if #group.items > 0 then
-                table.insert(results, "— " .. group.name .. " —")
-                for _, item in ipairs(group.items) do
-                    table.insert(results, string.format("%dx %s", item.count, item.name))
-                end
-                table.insert(results, "")
-            end
-        end
-        
-        local totalItems = 0
-        for _, craft in ipairs(craftingTypes) do
-            for _, item in ipairs(craftGroups[craft.key].items) do
-                totalItems = totalItems + item.count
-            end
-        end
-        
-        if totalItems > 0 then
-            table.insert(results, string.format("Total items needed: %d across %d character(s)", totalItems, GetCharacterCount()))
-        else
-            table.insert(results, "No research items needed across all characters!")
-        end
-    end
-    
-    return results
-end
-
--- Helper function to count tracked characters
-function GetCharacterCount()
-    local count = 0
-    for _ in pairs(ResearchDumpSavedVars.researchData) do
-        count = count + 1
-    end
-    return count
-end
-
--- Debug function to test API availability
-local function TestAPIFunctions()
-    d("=== Testing ESO API Functions ===")
-    local functions = {
-        "GetNumSmithingResearchLines",
-        "GetSmithingResearchLineInfo", 
-        "GetNumSmithingResearchLineTraits",
-        "GetSmithingResearchLineTraitInfo",
-        "GetSmithingResearchLineTraitType",
-        "IsSmithingTraitKnownForResult",
-        "CanItemLinkBeTraitResearched",
-        -- Test research-related functions
-        "GetSmithingResearchLineTraitTimes",
-        "GetSmithingResearchLineUnlockedTraits",
-        "IsSmithingResearchLineTraitKnown",
-        "GetNumResearchProjects",
-        "GetResearchProjectInfo",
-        -- Test crafting station functions
-        "ZO_SharedSmithingResearch_CanTraitBeResearched",
-        "ZO_SharedSmithingResearch_IsTraitKnownForResult"
-    }
-    
-    for _, funcName in ipairs(functions) do
-        if _G[funcName] then
-            d("✓ " .. funcName .. " - Available")
-        else
-            d("✗ " .. funcName .. " - NOT AVAILABLE")
-        end
-    end
-    
-    -- Test some basic constants
-    d("=== Testing Constants ===")
-    local constants = {
-        "CRAFTING_TYPE_BLACKSMITHING",
-        "CRAFTING_TYPE_CLOTHIER",
-        "CRAFTING_TYPE_WOODWORKING",
-        "CRAFTING_TYPE_JEWELRYCRAFTING"
-    }
-    
-    for _, constName in ipairs(constants) do
-        if _G[constName] then
-            d("✓ " .. constName .. " = " .. tostring(_G[constName]))
-        else
-            d("✗ " .. constName .. " - NOT AVAILABLE")
-        end
-    end
-end
-
--- Global variables to store results for export
-local exportResults = {}
-
-local function DumpGearCrafting(exportMode)
-    local results = {}
-    
-    if not exportMode then
-        d("=== Gear-Crafting Missing Traits ===")
-    else
-        table.insert(results, "=== Gear-Crafting Missing Traits ===")
-        table.insert(results, "Generated: " .. GetDateStringFromTimestamp(GetTimeStamp()))
-        table.insert(results, "Character: " .. GetDisplayName() .. " (@" .. GetUnitName("player") .. ")")
-        table.insert(results, "")
-    end
-    
-    local craftingTypes = {
-        { type = CRAFTING_TYPE_BLACKSMITHING, name = "Blacksmithing" },
-        { type = CRAFTING_TYPE_CLOTHIER, name = "Clothier" },
-        { type = CRAFTING_TYPE_WOODWORKING, name = "Woodworking" },
-        { type = CRAFTING_TYPE_JEWELRYCRAFTING, name = "Jewelry Crafting" }
-    }
-    
-    for _, craft in ipairs(craftingTypes) do
-        local craftSection = "— " .. craft.name .. " —"
-        if not exportMode then
-            d(craftSection)
-        else
-            table.insert(results, craftSection)
-        end
-        
-        local success, numResearchLines = pcall(GetNumSmithingResearchLines, craft.type)
-        if success and numResearchLines and numResearchLines > 0 then
-            local hasUnknownTraits = false
-            local craftMissing = {}
-            local craftResearching = {}
-            
-            for lineIndex = 1, numResearchLines do
-                local lineSuccess, lineName, lineIcon = pcall(GetSmithingResearchLineInfo, craft.type, lineIndex)
-                if lineSuccess and lineName then
-                    for traitIndex = 1, 9 do
-                        local traitSuccess, traitType, traitDescription, known = pcall(GetSmithingResearchLineTraitInfo, craft.type, lineIndex, traitIndex)
                         
-                        if traitSuccess and traitType then
-                            if known == false then
-                                local timesSuccess, remaining = pcall(GetSmithingResearchLineTraitTimes, craft.type, lineIndex, traitIndex)
-                                  if timesSuccess and remaining and remaining > 0 then
-                                    -- Currently researching this trait
-                                    local traitName = GetString("SI_ITEMTRAITTYPE", traitType)
-                                    if traitName and traitName ~= "" and not string.find(traitName, "<<") then
-                                        local researchText = "Researching: " .. traitName .. " on " .. lineName .. " (time left: " .. math.floor(remaining/3600) .. "h)"
-                                        if not exportMode then
-                                            d(researchText)
-                                        else
-                                            table.insert(craftResearching, researchText)
-                                        end
-                                    end
-                                else
-                                    -- This trait is not known and not being researched
-                                    local traitName = GetString("SI_ITEMTRAITTYPE", traitType)
-                                    if traitName and traitName ~= "" and not string.find(traitName, "<<") then
-                                        local missingText = "Missing: " .. traitName .. " on " .. lineName
-                                        hasUnknownTraits = true
-                                        if not exportMode then
-                                            d(missingText)
-                                        else
-                                            table.insert(craftMissing, missingText)
-                                        end
-                                    end
+                        local traitType = GetSmithingResearchLineTraitInfo(craft.type, lineIndex, traitIndex)
+                        local traitName = GetString("SI_ITEMTRAITTYPE", traitType)
+                        
+                        if traitName and not string.find(traitName, "<<") then
+                            local itemKey = lineName .. " - " .. traitName
+                            local found = false
+                            
+                            -- Check if this item already exists
+                            for _, item in ipairs(craftGroups[craft.key].items) do
+                                if item.key == itemKey then
+                                    item.count = item.count + 1
+                                    table.insert(item.characters, ProcessCharacterName(playerName))
+                                    found = true
+                                    break
                                 end
+                            end
+                            
+                            -- Add new item if not found
+                            if not found then
+                                table.insert(craftGroups[craft.key].items, {
+                                    key = itemKey,
+                                    lineName = lineName,
+                                    traitName = traitName,
+                                    count = 1,
+                                    characters = { ProcessCharacterName(playerName) }
+                                })
                             end
                         end
                     end
                 end
             end
-            
-            if exportMode then
-                -- Add researching traits first
-                for _, line in ipairs(craftResearching) do
-                    table.insert(results, line)
-                end
-                -- Then add missing traits
-                for _, line in ipairs(craftMissing) do
-                    table.insert(results, line)
-                end
-            end
-            
-            if not hasUnknownTraits then
-                local completeText = "All available traits known for " .. craft.name .. "!"
-                if not exportMode then
-                    d(completeText)
-                else
-                    table.insert(results, completeText)
-                end
-            end
-        else
-            local errorText = "No research lines found for " .. craft.name
-            if not exportMode then
-                d(errorText)
-            else
-                table.insert(results, errorText)
-            end
-        end
-        
-        if exportMode then
-            table.insert(results, "")
         end
     end
+    
+    -- Store column data for GUI display
+    ResearchDump.columnData = {}
+    
+    -- Generate output and populate column data
+    local totalItems = 0
+    for _, craft in ipairs(craftingTypes) do
+        ResearchDump.columnData[craft.key] = {
+            name = craft.name,
+            content = {}
+        }
+        
+        if #craftGroups[craft.key].items > 0 then
+            -- Sort items by count (most needed first)
+            table.sort(craftGroups[craft.key].items, function(a, b)
+                return a.count > b.count
+            end)
+              local craftSection = "=== " .. craftGroups[craft.key].name .. " ==="
+            table.insert(results, craftSection)
+            table.insert(ResearchDump.columnData[craft.key].content, craftSection)
+            
+            for _, item in ipairs(craftGroups[craft.key].items) do
+                local itemText = string.format("Need %d: %s", item.count, item.key)
+                local charactersText = "  Characters: " .. table.concat(item.characters, ", ")
+                
+                table.insert(results, itemText)
+                table.insert(results, charactersText)
+                
+                table.insert(ResearchDump.columnData[craft.key].content, itemText)
+                table.insert(ResearchDump.columnData[craft.key].content, charactersText)
+                totalItems = totalItems + item.count
+            end
+            
+            table.insert(results, "")
+            table.insert(ResearchDump.columnData[craft.key].content, "")        else
+            local completeText = craftGroups[craft.key].name .. ": All characters completed!"
+            table.insert(results, "=== " .. completeText .. " ===")
+            table.insert(results, "")
+            table.insert(ResearchDump.columnData[craft.key].content, "=== " .. completeText .. " ===")
+        end
+    end
+      -- Summary
+    local summaryText
+    if totalItems > 0 then
+        summaryText = string.format("Total items needed: %d across %d character(s)", totalItems, GetNumCharacters())
+    else
+        summaryText = "No research items needed across all characters!"
+    end
+    
+    table.insert(results, "=== Summary ===")
+    table.insert(results, summaryText)
     
     return results
 end
 
--- Enhanced function that analyzes items in inventory
-local function DumpResearchableItems(exportMode)
+-- Function to generate individual character crafting recommendations
+local function GenerateCraftingRecommendations(exportMode)
     local results = {}
     
-    if not exportMode then
-        d("=== Researchable Items in Inventory ===")
-    else
-        table.insert(results, "=== Researchable Items in Inventory ===")
-    end
+    -- Always build results for potential GUI display
+    table.insert(results, "=== Individual Character Crafting Recommendations ===")
+    table.insert(results, "Generated: " .. GetDateStringFromTimestamp(GetTimeStamp()))
+    table.insert(results, "")
     
-    local bagId = BAG_BACKPACK
-    local bagSlots = GetBagSize(bagId)
-    if not bagSlots then
-        local errorText = "Error: Could not get bag size"
-        if not exportMode then
-            d(errorText)
-        else
-            table.insert(results, errorText)
-        end
+    -- Check if we have any character data
+    if not ResearchDumpSavedVars.researchData or next(ResearchDumpSavedVars.researchData) == nil then
+        local noDataText = "No character research data found. Please log in with each character first."
+        table.insert(results, noDataText)
         return results
     end
     
-    local foundItems = false
-    local itemsChecked = 0
+    local craftingTypes = {
+        { type = CRAFTING_TYPE_BLACKSMITHING, name = "Blacksmithing", key = "blacksmithing" },
+        { type = CRAFTING_TYPE_CLOTHIER, name = "Clothier", key = "clothier" },
+        { type = CRAFTING_TYPE_WOODWORKING, name = "Woodworking", key = "woodworking" },
+        { type = CRAFTING_TYPE_JEWELRYCRAFTING, name = "Jewelry Crafting", key = "jewelry" }
+    }
     
-    for slotIndex = 0, bagSlots - 1 do
-        local itemLink = GetItemLink(bagId, slotIndex)
-        if itemLink and itemLink ~= "" then
-            itemsChecked = itemsChecked + 1
+    -- Material recommendations for each craft type
+    local craftMaterials = {
+        [CRAFTING_TYPE_BLACKSMITHING] = {
+            material = "Iron",
+            examples = { "Iron Axe", "Iron Mace", "Iron Sword", "Iron Battle Axe", "Iron Maul", "Iron Greatsword", "Iron Dagger" }
+        },
+        [CRAFTING_TYPE_CLOTHIER] = {
+            material = "Jute/Rawhide",
+            examples = { "Jute Hat", "Jute Robe", "Jute Gloves", "Rawhide Belt", "Rawhide Boots", "Rawhide Bracers", "Rawhide Guards" }
+        },
+        [CRAFTING_TYPE_WOODWORKING] = {
+            material = "Maple",
+            examples = { "Maple Bow", "Maple Staff", "Maple Shield" }
+        },
+        [CRAFTING_TYPE_JEWELRYCRAFTING] = {
+            material = "Pewter",
+            examples = { "Pewter Ring", "Pewter Necklace" }
+        }
+    }
+    
+    -- Helper function to count known traits in a research line
+    local function countKnownTraits(researchData, craftType, lineIndex)
+        local count = 0
+        if researchData and researchData[craftType] and researchData[craftType][lineIndex] then
+            for traitIndex = 1, 9 do
+                if researchData[craftType][lineIndex][traitIndex] == true then
+                    count = count + 1
+                end
+            end
+        end
+        return count
+    end
+    
+    -- Helper function to check if character is currently researching a trait
+    local function isCurrentlyResearching(craftType, lineIndex, traitIndex)
+        -- Check if current character is researching this trait
+        local currentPlayer = GetDisplayName() .. " @" .. GetUnitName("player")
+        if ResearchDumpSavedVars.researchData[currentPlayer] then
+            local success, remaining = pcall(GetSmithingResearchLineTraitTimes, craftType, lineIndex, traitIndex)
+            return success and remaining and remaining > 0
+        end
+        return false
+    end
+    
+    -- Analyze each character individually
+    local characterRecommendations = {}
+    
+    for playerName, researchData in pairs(ResearchDumpSavedVars.researchData) do
+        characterRecommendations[playerName] = {}
+        
+        -- For each crafting type
+        for _, craft in ipairs(craftingTypes) do
+            local numLines = GetNumSmithingResearchLines(craft.type)
             
-            -- Check if this item can be researched
-            local itemType = GetItemLinkItemType(itemLink)
-            local traitType = GetItemLinkTraitInfo(itemLink)
-            
-            -- Check if this is a researchable item type
-            if itemType and (itemType == ITEMTYPE_WEAPON or itemType == ITEMTYPE_ARMOR or itemType == ITEMTYPE_JEWELRY) then
-                -- Use pcall for safety
-                local canResearchSuccess, canBeResearched = pcall(CanItemLinkBeTraitResearched, itemLink)
+            for lineIndex = 1, numLines do
+                local lineName = GetSmithingResearchLineInfo(craft.type, lineIndex)
+                local knownTraits = countKnownTraits(researchData, craft.type, lineIndex)
                 
-                if canResearchSuccess and canBeResearched then
-                    local itemName = GetItemLinkName(itemLink)
-                    local traitName = GetString("SI_ITEMTRAITTYPE", traitType)
-                    
-                    if itemName and traitName and not string.find(traitName, "<<") then
-                        local itemText = "Can research: " .. itemName .. " (" .. traitName .. ")"
-                        if not exportMode then
-                            d(itemText)
-                        else
-                            table.insert(results, itemText)
-                        end
-                        foundItems = true
-                    elseif itemName then
-                        local itemText = "Can research: " .. itemName .. " (Unknown trait)"
-                        if not exportMode then
-                            d(itemText)
-                        else
-                            table.insert(results, itemText)
-                        end
-                        foundItems = true
-                    end
-                elseif not canResearchSuccess then
-                    -- Fallback method if CanItemLinkBeTraitResearched doesn't work
-                    if traitType and traitType ~= ITEM_TRAIT_TYPE_NONE then
-                        local itemName = GetItemLinkName(itemLink)
-                        if itemName then
-                            local itemText = "Possible research item: " .. itemName .. " (trait " .. tostring(traitType) .. ")"
-                            if not exportMode then
-                                d(itemText)
-                            else
-                                table.insert(results, itemText)
-                            end
-                            foundItems = true
+                -- Find missing traits for this character
+                for traitIndex = 1, 9 do
+                    if researchData[craft.type] and 
+                       researchData[craft.type][lineIndex] and 
+                       researchData[craft.type][lineIndex][traitIndex] == false and
+                       not isCurrentlyResearching(craft.type, lineIndex, traitIndex) then
+                        
+                        local traitType = GetSmithingResearchLineTraitInfo(craft.type, lineIndex, traitIndex)
+                        local traitName = GetString("SI_ITEMTRAITTYPE", traitType)
+                        
+                        if traitName and not string.find(traitName, "<<") then
+                            -- Calculate priority score: fewer known traits = higher priority
+                            local priorityScore = (9 - knownTraits) * 100 + (9 - traitIndex)
+                            
+                            table.insert(characterRecommendations[playerName], {
+                                craftType = craft.type,
+                                craftName = craft.name,
+                                lineName = lineName,
+                                traitName = traitName,
+                                knownTraits = knownTraits,
+                                priorityScore = priorityScore,
+                                material = craftMaterials[craft.type].material,
+                                exampleItem = craftMaterials[craft.type].examples[((lineIndex - 1) % #craftMaterials[craft.type].examples) + 1]
+                            })
                         end
                     end
                 end
             end
         end
+        
+        -- Sort recommendations by priority score (higher = more important)
+        table.sort(characterRecommendations[playerName], function(a, b)
+            return a.priorityScore > b.priorityScore
+        end)
     end
-    
-    if not foundItems then
-        local noItemsText = "No researchable items found in inventory."
-        if not exportMode then
-            d(noItemsText)
+      -- Generate output for each character
+    for playerName, recommendations in pairs(characterRecommendations) do
+        if #recommendations > 0 then
+            local characterSection = "=== " .. ProcessCharacterName(playerName) .. " ==="
+            table.insert(results, characterSection)
+            
+            -- Show top 10 recommendations per character
+            local maxRecommendations = math.min(10, #recommendations)
+            for i = 1, maxRecommendations do
+                local rec = recommendations[i]
+                local recommendationText = string.format("Priority %d: %s (%s) - %s line: %d/9 traits", 
+                    i, rec.exampleItem, rec.traitName, rec.lineName, rec.knownTraits)
+                
+                table.insert(results, recommendationText)
+            end
+            
+            if #recommendations > maxRecommendations then
+                local moreText = string.format("  ... and %d more recommendations", #recommendations - maxRecommendations)
+                table.insert(results, moreText)
+            end
+            
+            table.insert(results, "")
         else
-            table.insert(results, noItemsText)
+            local completeText = ProcessCharacterName(playerName) .. " - All available traits researched!"
+            table.insert(results, "=== " .. completeText .. " ===")
+            table.insert(results, "")
         end
     end
+      -- Summary statistics
+    local totalRecommendations = 0
+    for _, recommendations in pairs(characterRecommendations) do
+        totalRecommendations = totalRecommendations + #recommendations
+    end
+    
+    local summaryText = string.format("Total crafting recommendations: %d across %d character(s)", 
+        totalRecommendations, GetNumCharacters())
+    
+    table.insert(results, "=== Summary ===")
+    table.insert(results, summaryText)
+    table.insert(results, "Tip: Use the cheapest materials (Iron, Jute, Rawhide, Maple, Pewter) for research items!")
     
     return results
 end
 
--- Function to export results to actual text file in addon directory
-local function ExportToFile()
-    d("Generating research report and saving to file...")
-    
+-- Function to generate crafting recommendations organized by craft type and character
+local function GenerateCraftingRecommendationsByType(exportMode)
     local results = {}
     
-    -- Get all data types including shopping list
-    local gearResults = DumpGearCrafting(true)
-    local itemResults = DumpResearchableItems(true)
-    local shoppingResults = GenerateShoppingList(true)
-    
-    -- Combine results
-    for _, line in ipairs(gearResults) do
-        table.insert(results, line)
-    end
-    
+    -- Always build results for potential GUI display
+    table.insert(results, "=== Crafting Recommendations by Type ===")
+    table.insert(results, "Generated: " .. GetDateStringFromTimestamp(GetTimeStamp()))
     table.insert(results, "")
     
-    for _, line in ipairs(itemResults) do
-        table.insert(results, line)
+    -- Check if we have any character data
+    if not ResearchDumpSavedVars.researchData or next(ResearchDumpSavedVars.researchData) == nil then
+        local noDataText = "No character research data found. Please log in with each character first."
+        table.insert(results, noDataText)
+        return results
     end
     
-    table.insert(results, "")
-    
-    for _, line in ipairs(shoppingResults) do
-        table.insert(results, line)
-    end
-    
-    -- Create filename with timestamp
-    local timestamp = GetDateStringFromTimestamp(GetTimeStamp())
-    local fileName = "ResearchDump_" .. timestamp:gsub("[^%w]", "_")
-    
-    -- Create the plain text content
-    local txtContent = table.concat(results, "\n")
-      -- Save to SavedVariables for persistent storage
-    ResearchDumpSavedVars.exportData = {
-        version = "1.5",
-        lastExport = timestamp,
-        fileName = fileName .. ".txt",
-        content = txtContent
+    local craftingTypes = {
+        { type = CRAFTING_TYPE_BLACKSMITHING, name = "Blacksmithing", key = "blacksmithing", maxRecommendations = 3 },
+        { type = CRAFTING_TYPE_CLOTHIER, name = "Clothier", key = "clothier", maxRecommendations = 3 },
+        { type = CRAFTING_TYPE_WOODWORKING, name = "Woodworking", key = "woodworking", maxRecommendations = 3 },
+        { type = CRAFTING_TYPE_JEWELRYCRAFTING, name = "Jewelry Crafting", key = "jewelry", maxRecommendations = 1 }
     }
     
-    -- Also store in a global variable for immediate access
-    _G["ResearchDumpTxtExport"] = {
-        content = txtContent,
-        filename = fileName .. ".txt",
-        timestamp = timestamp,
-        lines = #results
+    -- Material recommendations for each craft type
+    local craftMaterials = {
+        [CRAFTING_TYPE_BLACKSMITHING] = {
+            material = "Iron",
+            examples = { "Iron Axe", "Iron Mace", "Iron Sword", "Iron Battle Axe", "Iron Maul", "Iron Greatsword", "Iron Dagger" }
+        },
+        [CRAFTING_TYPE_CLOTHIER] = {
+            material = "Jute/Rawhide",
+            examples = { "Jute Hat", "Jute Robe", "Jute Gloves", "Rawhide Belt", "Rawhide Boots", "Rawhide Bracers", "Rawhide Guards" }
+        },
+        [CRAFTING_TYPE_WOODWORKING] = {
+            material = "Maple",
+            examples = { "Maple Bow", "Maple Staff", "Maple Shield" }
+        },
+        [CRAFTING_TYPE_JEWELRYCRAFTING] = {
+            material = "Pewter",
+            examples = { "Pewter Ring", "Pewter Necklace" }
+        }
     }
     
-    -- Try to save a lua file in the addon directory that can be easily converted to txt
-    local luaFileContent = "-- ResearchDump Export File\n" ..
-                          "-- Generated: " .. timestamp .. "\n" ..
-                          "-- Character: " .. GetDisplayName() .. " (@" .. GetUnitName("player") .. ")\n" ..
-                          "-- To convert to .txt file, copy everything between the [=[ ]=] markers\n\n" ..
-                          "ResearchDumpExport = [=[\n" ..
-                          txtContent .. "\n" ..
-                          "]=]\n\n" ..
-                          "-- Usage: Copy the content between [=[ ]=] and save as " .. fileName .. ".txt"
+    -- Helper function to count known traits in a research line
+    local function countKnownTraits(researchData, craftType, lineIndex)
+        local count = 0
+        if researchData and researchData[craftType] and researchData[craftType][lineIndex] then
+            for traitIndex = 1, 9 do
+                if researchData[craftType][lineIndex][traitIndex] == true then
+                    count = count + 1
+                end
+            end
+        end
+        return count
+    end
     
-    -- Store the lua file content for manual saving
-    _G["ResearchDumpLuaFile"] = {
-        content = luaFileContent,
-        filename = fileName .. ".lua"
+    -- Helper function to check if character is currently researching a trait
+    local function isCurrentlyResearching(craftType, lineIndex, traitIndex)
+        local currentPlayer = GetDisplayName() .. " @" .. GetUnitName("player")
+        if ResearchDumpSavedVars.researchData[currentPlayer] then
+            local success, remaining = pcall(GetSmithingResearchLineTraitTimes, craftType, lineIndex, traitIndex)
+            return success and remaining and remaining > 0
+        end
+        return false
+    end
+    
+    -- Organize recommendations by craft type, then by character
+    local craftTypeData = {}
+    
+    for _, craft in ipairs(craftingTypes) do
+        craftTypeData[craft.key] = {
+            name = craft.name,
+            maxRecommendations = craft.maxRecommendations,
+            characters = {}
+        }
+        
+        -- Analyze each character for this craft type
+        for playerName, researchData in pairs(ResearchDumpSavedVars.researchData) do
+            local characterRecommendations = {}
+            local numLines = GetNumSmithingResearchLines(craft.type)
+            
+            for lineIndex = 1, numLines do
+                local lineName = GetSmithingResearchLineInfo(craft.type, lineIndex)
+                local knownTraits = countKnownTraits(researchData, craft.type, lineIndex)
+                
+                -- Find missing traits for this character and craft type
+                for traitIndex = 1, 9 do
+                    if researchData[craft.type] and
+                       researchData[craft.type][lineIndex] and 
+                       researchData[craft.type][lineIndex][traitIndex] == false and
+                       not isCurrentlyResearching(craft.type, lineIndex, traitIndex) then
+                        
+                        local traitType = GetSmithingResearchLineTraitInfo(craft.type, lineIndex, traitIndex)
+                        local traitName = GetString("SI_ITEMTRAITTYPE", traitType)
+                        
+                        if traitName and not string.find(traitName, "<<") then
+                            -- Calculate priority score: fewer known traits = higher priority
+                            local priorityScore = (9 - knownTraits) * 100 + (9 - traitIndex)
+                            
+                            table.insert(characterRecommendations, {
+                                craftType = craft.type,
+                                craftName = craft.name,
+                                lineName = lineName,
+                                traitName = traitName,
+                                knownTraits = knownTraits,
+                                priorityScore = priorityScore,
+                                material = craftMaterials[craft.type].material,
+                                exampleItem = craftMaterials[craft.type].examples[((lineIndex - 1) % #craftMaterials[craft.type].examples) + 1]
+                            })
+                        end
+                    end
+                end
+            end
+            
+            -- Sort recommendations by priority score (higher = more important)
+            table.sort(characterRecommendations, function(a, b)
+                return a.priorityScore > b.priorityScore
+            end)
+            
+            -- Store character recommendations if any exist
+            if #characterRecommendations > 0 then
+                craftTypeData[craft.key].characters[playerName] = characterRecommendations
+            end
+        end
+    end
+    
+    return craftTypeData
+end
+
+-- Function to generate column data for expanding menu crafting recommendations
+local function GenerateExpandingMenuColumnData()
+    local craftTypeData = GenerateCraftingRecommendationsByType(true)
+    local columnData = {
+        blacksmithing = { content = {} },
+        clothier = { content = {} },
+        woodworking = { content = {} },
+        jewelry = { content = {} }
     }
     
-    d("|c00FF00Research report generated successfully!|r")
-    d("|cFFFF00Saved to SavedVariables: ResearchDump.lua|r")
-    d("|cFFFF00To create text file:|r")
-    d("|cFFFF001. Use: /script d(ResearchDumpTxtExport.content)|r")
-    d("|cFFFF002. Copy the output and save as: " .. fileName .. ".txt|r")
-    d("|cFFFF00Or check SavedVariables folder for ResearchDump.lua file|r")
-    d("Report contains " .. #results .. " lines of data.")
-      -- Store results globally for potential future use
-    exportResults = results
-end
-
--- Global function for XML event handlers to close the window
-function ResearchDump_CloseWindow()
-    if ResearchDumpUI and ResearchDumpUI.Hide then
-        ResearchDumpUI.Hide()
-    elseif ResearchDumpWindow then
-        -- Fallback: directly hide the window if UI object isn't available
-        ResearchDumpWindow:SetHidden(true)
+    -- Map craft keys to column keys
+    local craftToColumn = {
+        blacksmithing = "blacksmithing",
+        clothier = "clothier", 
+        woodworking = "woodworking",
+        jewelry = "jewelry"
+    }
+    
+    for craftKey, craftData in pairs(craftTypeData) do
+        local columnKey = craftToColumn[craftKey]
+        if columnKey then
+            table.insert(columnData[columnKey].content, "=== " .. craftData.name .. " ===")
+            
+            if craftData.characters and next(craftData.characters) then
+                for characterName, recommendations in pairs(craftData.characters) do
+                    table.insert(columnData[columnKey].content, "▼ " .. ProcessCharacterName(characterName))
+                    local maxRecs = craftData.maxRecommendations
+                    local actualRecs = math.min(maxRecs, #recommendations)
+                    for i = 1, actualRecs do
+                        local rec = recommendations[i]
+                        table.insert(columnData[columnKey].content, string.format("  %d. %s (%s) - %s line: %d/9 traits", 
+                            i, rec.exampleItem, rec.traitName, rec.lineName, rec.knownTraits))
+                    end
+                    table.insert(columnData[columnKey].content, "")
+                end
+            else
+                table.insert(columnData[columnKey].content, "All characters completed!")
+            end
+            table.insert(columnData[columnKey].content, "")
+        end
     end
+    
+    return columnData
 end
 
--- Global functions for XML resize event handlers
-function ResearchDump_OnResizeStart()
-    -- Called when window resize starts - can be used for performance optimizations
-end
-
-function ResearchDump_OnResizeStop()
-    -- Called when window resize stops - can be used to refresh content layout
-    if ResearchDumpUI and ResearchDumpUI.textArea and ResearchDumpUI.scrollContainer then
-        -- Refresh text area dimensions after resize
-        ResearchDumpUI.textArea:SetDimensions(ResearchDumpUI.scrollContainer:GetWidth() - 20, 800)
-    end
-end
-
--- GUI Window for Shopping List
-ResearchDumpUI = {} -- Make this global so XML can access it
+-- ResearchDumpUI implementation
+ResearchDumpUI = {} 
 ResearchDumpUI.window = nil
 ResearchDumpUI.isVisible = false
 
@@ -613,6 +590,107 @@ function ResearchDumpUI.CreateWindow()
     ResearchDumpUI.window:SetHidden(true)
 end
 
+-- Function to generate column data for crafting recommendations
+local function GenerateCraftingColumnData()
+    local results = GenerateCraftingRecommendations(true)
+    local columnData = {
+        blacksmithing = { content = {}, header = "Characters" },
+        clothier = { content = {}, header = "Characters" },
+        woodworking = { content = {}, header = "Characters" },
+        jewelry = { content = {}, header = "Characters" }
+    }
+    
+    -- Parse the results and organize by character sections
+    local characters = {}
+    local currentCharacter = nil
+    local characterRecommendations = {}
+    
+    for _, line in ipairs(results) do
+        if string.match(line, "^=== .+ ===") then
+            -- This is a character header
+            if currentCharacter and #characterRecommendations > 0 then
+                -- Store previous character's data
+                characters[currentCharacter] = characterRecommendations
+            end
+            currentCharacter = string.match(line, "^=== (.+) ===")
+            characterRecommendations = {}
+        elseif currentCharacter and string.match(line, "^Priority %d+:") then
+            -- This is a recommendation line
+            table.insert(characterRecommendations, line)
+        end
+    end
+    
+    -- Store the last character
+    if currentCharacter and #characterRecommendations > 0 then
+        characters[currentCharacter] = characterRecommendations
+    end
+    
+    -- Distribute characters across the 4 columns
+    local columnNames = { "blacksmithing", "clothier", "woodworking", "jewelry" }
+    local columnIndex = 1
+    
+    for characterName, recommendations in pairs(characters) do
+        local columnKey = columnNames[columnIndex]
+        
+        -- Add character header
+        table.insert(columnData[columnKey].content, "=== " .. ProcessCharacterName(characterName) .. " ===")
+        
+        -- Add top 5 recommendations
+        local maxRecommendations = math.min(5, #recommendations)
+        if maxRecommendations > 0 then
+            for i = 1, maxRecommendations do
+                table.insert(columnData[columnKey].content, recommendations[i])
+            end
+        else
+            table.insert(columnData[columnKey].content, "  No recommendations")
+        end
+        
+        -- Add spacing between characters
+        table.insert(columnData[columnKey].content, "")
+        
+        -- Move to next column (cycle through all 4 columns)
+        columnIndex = columnIndex + 1
+        if columnIndex > 4 then
+            columnIndex = 1
+        end
+    end
+    
+    return columnData
+end
+
+-- Function to update column headers dynamically
+local function UpdateColumnHeaders(headerTexts)
+    if not ResearchDumpUI.window then
+        return
+    end
+    
+    local scrollContainer = ResearchDumpUI.window:GetNamedChild("ScrollContainer")
+    if not scrollContainer then return end
+    
+    local scrollChild = scrollContainer:GetNamedChild("ScrollChild")
+    if not scrollChild then return end
+    
+    local columnContainer = scrollChild:GetNamedChild("ColumnContainer")
+    if not columnContainer then return end
+    
+    local columns = {
+        { name = "BlacksmithingColumn", key = "blacksmithing" },
+        { name = "ClothierColumn", key = "clothier" },
+        { name = "WoodworkingColumn", key = "woodworking" },
+        { name = "JewelryColumn", key = "jewelry" }
+    }
+    
+    for _, col in ipairs(columns) do
+        local column = columnContainer:GetNamedChild(col.name)
+        if column then
+            local header = column:GetNamedChild("Header")
+            if header and headerTexts[col.key] then
+                header:SetText(headerTexts[col.key])
+            end
+        end
+    end
+end
+
 -- Show the window with shopping list content
 function ResearchDumpUI.ShowShoppingList()
     if not ResearchDumpUI.window then
@@ -621,6 +699,20 @@ function ResearchDumpUI.ShowShoppingList()
     
     -- Generate shopping list data
     GenerateShoppingList(false) -- This populates ResearchDump.columnData
+    
+    -- Update title
+    if ResearchDumpUI.titleText then
+        ResearchDumpUI.titleText:SetText("ResearchDump - Shopping List")
+    end
+    
+    -- Restore original column headers for shopping list
+    local headerTexts = {
+        blacksmithing = "Blacksmithing",
+        clothier = "Clothier",
+        woodworking = "Woodworking",
+        jewelry = "Jewelry Crafting"
+    }
+    UpdateColumnHeaders(headerTexts)
     
     -- Check if we have column text areas
     if ResearchDumpUI.columnTextAreas then
@@ -634,11 +726,17 @@ function ResearchDumpUI.ShowShoppingList()
         
         for key, columnKey in pairs(columnMap) do
             local textArea = ResearchDumpUI.columnTextAreas[key]
-            if textArea and ResearchDump.columnData and ResearchDump.columnData[columnKey] then
-                local content = table.concat(ResearchDump.columnData[columnKey].content, "\n")
-                textArea:SetText(content)
-            elseif textArea then
-                textArea:SetText("No items needed!")
+            if textArea then
+                if ResearchDump.columnData[columnKey] and ResearchDump.columnData[columnKey].content then
+                    local content = table.concat(ResearchDump.columnData[columnKey].content, "\n")
+                    if content and content ~= "" then
+                        textArea:SetText(content)
+                    else
+                        textArea:SetText("No items needed!")
+                    end
+                else
+                    textArea:SetText("No items needed!")
+                end
             end
         end
     else
@@ -650,29 +748,153 @@ function ResearchDumpUI.ShowShoppingList()
             ResearchDumpUI.textArea:SetDimensions(ResearchDumpUI.scrollContainer:GetWidth() - 20, 800)
         end
     end
-    
-    -- Show the window
+      -- Show the window
     ResearchDumpUI.window:SetHidden(false)
     ResearchDumpUI.isVisible = true
-    
-    d("|c00FF00Shopping list window opened with column layout!|r")
 end
 
--- Show the window with any content
-function ResearchDumpUI.ShowContent(title, content)
+-- Show the window with expanding menu crafting recommendations content
+function ResearchDumpUI.ShowExpandingMenuCraftingRecommendations()
     if not ResearchDumpUI.window then
         ResearchDumpUI.CreateWindow()
     end
-      -- Update title if provided
-    if title and ResearchDumpUI.titleText then
-        ResearchDumpUI.titleText:SetText(title)
-    end
-      -- Update the text area
-    ResearchDumpUI.textArea:SetText(content)
-    -- For EditBox controls, we don't use GetTextHeight() - instead let it auto-size or use a fixed height
-    ResearchDumpUI.textArea:SetDimensions(ResearchDumpUI.scrollContainer:GetWidth() - 20, 800)
     
-    -- Show the window
+    -- Generate expanding menu crafting recommendations column data
+    local expandingMenuColumnData = GenerateExpandingMenuColumnData()
+    
+    -- Update title
+    if ResearchDumpUI.titleText then
+        ResearchDumpUI.titleText:SetText("ResearchDump - Crafting Recommendations by Type")
+    end
+    
+    -- Restore original column headers for craft types
+    local headerTexts = {
+        blacksmithing = "Blacksmithing",
+        clothier = "Clothier",
+        woodworking = "Woodworking",
+        jewelry = "Jewelry Crafting"
+    }
+    UpdateColumnHeaders(headerTexts)
+    
+    -- Check if we have column text areas
+    if ResearchDumpUI.columnTextAreas then
+        -- Populate each column with its respective data
+        local columnMap = {
+            blacksmithing = "blacksmithing",
+            clothier = "clothier",
+            woodworking = "woodworking",
+            jewelry = "jewelry"
+        }
+        
+        for key, columnKey in pairs(columnMap) do
+            local textArea = ResearchDumpUI.columnTextAreas[key]
+            if textArea then
+                if expandingMenuColumnData[columnKey] and expandingMenuColumnData[columnKey].content then
+                    local content = table.concat(expandingMenuColumnData[columnKey].content, "\n")
+                    if content and content ~= "" then
+                        textArea:SetText(content)
+                    else
+                        textArea:SetText("No recommendations for this craft!")
+                    end
+                else
+                    textArea:SetText("No recommendations for this craft!")
+                end
+            end
+        end
+    else
+        -- Fallback to old single text area if columns aren't available
+        local craftTypeData = GenerateCraftingRecommendationsByType(true)
+        local allContent = {}
+        
+        for craftKey, craftData in pairs(craftTypeData) do
+            table.insert(allContent, "=== " .. craftData.name .. " ===")
+            if craftData.characters and next(craftData.characters) then
+                for characterName, recommendations in pairs(craftData.characters) do
+                    table.insert(allContent, "▼ " .. ProcessCharacterName(characterName))
+                    local maxRecs = craftData.maxRecommendations
+                    local actualRecs = math.min(maxRecs, #recommendations)
+                    for i = 1, actualRecs do
+                        local rec = recommendations[i]
+                        table.insert(allContent, string.format("  %d. %s (%s) - %s line: %d/9 traits", 
+                            i, rec.exampleItem, rec.traitName, rec.lineName, rec.knownTraits))
+                    end
+                    table.insert(allContent, "")
+                end
+            else
+                table.insert(allContent, "All characters completed!")
+            end
+            table.insert(allContent, "")
+        end
+        
+        local content = table.concat(allContent, "\n")
+        if ResearchDumpUI.textArea then
+            ResearchDumpUI.textArea:SetText(content)
+            ResearchDumpUI.textArea:SetDimensions(ResearchDumpUI.scrollContainer:GetWidth() - 20, 800)
+        end
+    end
+      -- Show the window
+    ResearchDumpUI.window:SetHidden(false)
+    ResearchDumpUI.isVisible = true
+end
+
+-- Show the window with crafting recommendations content
+function ResearchDumpUI.ShowCraftingRecommendations()
+    if not ResearchDumpUI.window then
+        ResearchDumpUI.CreateWindow()
+    end
+    
+    -- Generate crafting recommendations column data
+    local craftingColumnData = GenerateCraftingColumnData()
+    
+    -- Update title
+    if ResearchDumpUI.titleText then
+        ResearchDumpUI.titleText:SetText("ResearchDump - Crafting Recommendations (Top 5 per Character)")
+    end
+    
+    -- Update column headers to show they contain characters, not craft types
+    local headerTexts = {
+        blacksmithing = "Characters (1)",
+        clothier = "Characters (2)", 
+        woodworking = "Characters (3)",
+        jewelry = "Characters (4)"
+    }
+    UpdateColumnHeaders(headerTexts)
+    
+    -- Check if we have column text areas
+    if ResearchDumpUI.columnTextAreas then
+        -- Populate each column with its respective data
+        local columnMap = {
+            blacksmithing = "blacksmithing",
+            clothier = "clothier",
+            woodworking = "woodworking",
+            jewelry = "jewelry"
+        }
+        
+        for key, columnKey in pairs(columnMap) do
+            local textArea = ResearchDumpUI.columnTextAreas[key]
+            if textArea then
+                if craftingColumnData[columnKey] and craftingColumnData[columnKey].content then
+                    local content = table.concat(craftingColumnData[columnKey].content, "\n")
+                    if content and content ~= "" then
+                        textArea:SetText(content)
+                    else
+                        textArea:SetText("No recommendations!")
+                    end
+                else
+                    textArea:SetText("No recommendations!")
+                end
+            end
+        end
+    else
+        -- Fallback to old single text area if columns aren't available
+        local results = GenerateCraftingRecommendations(true)
+        local content = table.concat(results, "\n")
+        if ResearchDumpUI.textArea then
+            ResearchDumpUI.textArea:SetText(content)
+            ResearchDumpUI.textArea:SetDimensions(ResearchDumpUI.scrollContainer:GetWidth() - 20, 800)
+        end
+    end
+      -- Show the window
     ResearchDumpUI.window:SetHidden(false)
     ResearchDumpUI.isVisible = true
 end
@@ -694,63 +916,40 @@ function ResearchDumpUI.Toggle()
     end
 end
 
--- Register "/dumpresearch" as a new slash command:
+-- Slash Commands
+
+-- /craft command - for crafting recommendations
+SLASH_COMMANDS["/craft"] = function(param)
+    -- Convert param to string to avoid nil concatenation error
+    local paramStr = param and tostring(param) or ""
+    -- Trim and convert to lowercase
+    param = paramStr:lower():gsub("^%s*(.-)%s*$", "%1")
+    
+    if param == "" or param == "recommendations" then
+        ResearchDumpUI.ShowExpandingMenuCraftingRecommendations()
+    elseif param == "gui" or param == "window" then
+        ResearchDumpUI.ShowCraftingRecommendations()
+    elseif param == "expanding" or param == "menu" or param == "expandingmenu" then
+        ResearchDumpUI.ShowExpandingMenuCraftingRecommendations()
+    end
+end
+
+-- /dumpresearch command - supports only shopping, craftgui, and craftguiexpanding
 SLASH_COMMANDS["/dumpresearch"] = function(param)
     -- Convert param to string to avoid nil concatenation error
     local paramStr = param and tostring(param) or ""
-      -- Trim and convert to lowercase
+    -- Trim and convert to lowercase
     param = paramStr:lower():gsub("^%s*(.-)%s*$", "%1")
 
-    if param == "" or param == "all" then
-        d("ResearchDump: Running all functions...")
-        DumpGearCrafting()
-        DumpResearchableItems()
-    elseif param == "gear" or param == "traits" then
-        d("ResearchDump: Running gear crafting...")
-        DumpGearCrafting()
-    elseif param == "items" or param == "inventory" then
-        d("ResearchDump: Running researchable items...")
-        DumpResearchableItems()
-    elseif param == "shopping" or param == "list" then
-        d("ResearchDump: Generating shopping list...")
+    if param == "shopping" or param == "list" then
         GenerateShoppingList()
+    elseif param == "craft" or param == "recommendations" then
+        GenerateCraftingRecommendations()
+    elseif param == "craftgui" or param == "craft gui" then
+        ResearchDumpUI.ShowCraftingRecommendations()
+    elseif param == "craftexpanding" or param == "craft expanding" or param == "craftmenu" then
+        ResearchDumpUI.ShowExpandingMenuCraftingRecommendations()
     elseif param == "gui" or param == "window" then
-        d("ResearchDump: Opening shopping list window...")
         ResearchDumpUI.ShowShoppingList()
-    elseif param == "export" or param == "file" then
-        d("ResearchDump: Exporting to file...")
-        ExportToFile()
-    elseif param == "exportgui" then
-        d("ResearchDump: Opening export in window...")
-        local gearResults = DumpGearCrafting(true)
-        local itemResults = DumpResearchableItems(true)
-        local shoppingResults = GenerateShoppingList(true)
-        local allResults = {}
-        
-        for _, line in ipairs(gearResults) do
-            table.insert(allResults, line)
-        end
-        table.insert(allResults, "")
-        for _, line in ipairs(itemResults) do
-            table.insert(allResults, line)
-        end
-        table.insert(allResults, "")        for _, line in ipairs(shoppingResults) do
-            table.insert(allResults, line)
-        end
-        ResearchDumpUI.ShowContent("ResearchDump - Full Report", table.concat(allResults, "\n"))
-    elseif param == "test" or param == "debug" then
-        d("ResearchDump: Testing API functions...")
-        TestAPIFunctions()
-    else
-        d("Usage:")
-        d("  /dumpresearch [all|gear|items|shopping|gui|export|exportgui|test]")
-        d("  all/empty - Show both missing traits and researchable items")
-        d("  gear/traits - Show only missing traits")
-        d("  items/inventory - Show only researchable items in inventory")
-        d("  shopping/list - Generate multi-character shopping list")
-        d("  gui/window - Open shopping list in copyable GUI window")
-        d("  export/file - Export results to SavedVariables and provide text version")
-        d("  exportgui - Open full report in copyable GUI window")
-        d("  test/debug - Test which API functions are available")
     end
 end

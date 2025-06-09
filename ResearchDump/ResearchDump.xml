@@ -65,8 +65,7 @@
                                             <Anchor point="TOPLEFT" offsetX="0" offsetY="0"/>
                                             <Dimensions x="220" y="800"/>
                                             
-                                            <Controls>
-                                                <Label name="$(parent)Header" font="ZoFontWinH4" color="FFFF00" 
+                                            <Controls>                                                <Label name="$(parent)Header" font="ZoFontWinH4" color="FFFF00" 
                                                        horizontalAlignment="TEXT_ALIGN_CENTER" text="Blacksmithing">
                                                     <Anchor point="TOPLEFT" offsetX="0" offsetY="5"/>
                                                     <Anchor point="TOPRIGHT" offsetX="0" offsetY="5"/>
@@ -75,8 +74,11 @@
                                                 <EditBox name="$(parent)TextArea" font="ZoFontGameBold" color="FFFFFF" 
                                                          inherits="ZO_DefaultEditMultiLineForBackdrop" 
                                                          maxInputCharacters="50000" editEnabled="false">
-                                                    <Anchor point="TOPLEFT" relativeTo="$(parent)Header" relativePoint="BOTTOMLEFT" offsetX="0" offsetY="5"/>
-                                                    <Anchor point="BOTTOMRIGHT" offsetX="0" offsetY="0"/>
+                                                    <Anchor point="TOPLEFT" relativeTo="$(parent)Header" relativePoint="BOTTOMLEFT" offsetX="5" offsetY="5"/>
+                                                    <Anchor point="BOTTOMRIGHT" offsetX="-5" offsetY="-5"/>
+                                                    <OnInitialized>
+                                                        self:SetText("")
+                                                    </OnInitialized>
                                                 </EditBox>
                                             </Controls>
                                         </Control>
@@ -86,8 +88,7 @@
                                             <Anchor point="TOPLEFT" offsetX="220" offsetY="0"/>
                                             <Dimensions x="220" y="800"/>
                                             
-                                            <Controls>
-                                                <Label name="$(parent)Header" font="ZoFontWinH4" color="FFFF00" 
+                                            <Controls>                                                <Label name="$(parent)Header" font="ZoFontWinH4" color="FFFF00" 
                                                        horizontalAlignment="TEXT_ALIGN_CENTER" text="Clothier">
                                                     <Anchor point="TOPLEFT" offsetX="0" offsetY="5"/>
                                                     <Anchor point="TOPRIGHT" offsetX="0" offsetY="5"/>
@@ -96,8 +97,11 @@
                                                 <EditBox name="$(parent)TextArea" font="ZoFontGameBold" color="FFFFFF" 
                                                          inherits="ZO_DefaultEditMultiLineForBackdrop" 
                                                          maxInputCharacters="50000" editEnabled="false">
-                                                    <Anchor point="TOPLEFT" relativeTo="$(parent)Header" relativePoint="BOTTOMLEFT" offsetX="0" offsetY="5"/>
-                                                    <Anchor point="BOTTOMRIGHT" offsetX="0" offsetY="0"/>
+                                                    <Anchor point="TOPLEFT" relativeTo="$(parent)Header" relativePoint="BOTTOMLEFT" offsetX="5" offsetY="5"/>
+                                                    <Anchor point="BOTTOMRIGHT" offsetX="-5" offsetY="-5"/>
+                                                    <OnInitialized>
+                                                        self:SetText("")
+                                                    </OnInitialized>
                                                 </EditBox>
                                             </Controls>
                                         </Control>
@@ -107,8 +111,7 @@
                                             <Anchor point="TOPLEFT" offsetX="440" offsetY="0"/>
                                             <Dimensions x="220" y="800"/>
                                             
-                                            <Controls>
-                                                <Label name="$(parent)Header" font="ZoFontWinH4" color="FFFF00" 
+                                            <Controls>                                                <Label name="$(parent)Header" font="ZoFontWinH4" color="FFFF00" 
                                                        horizontalAlignment="TEXT_ALIGN_CENTER" text="Woodworking">
                                                     <Anchor point="TOPLEFT" offsetX="0" offsetY="5"/>
                                                     <Anchor point="TOPRIGHT" offsetX="0" offsetY="5"/>
@@ -117,8 +120,11 @@
                                                 <EditBox name="$(parent)TextArea" font="ZoFontGameBold" color="FFFFFF" 
                                                          inherits="ZO_DefaultEditMultiLineForBackdrop" 
                                                          maxInputCharacters="50000" editEnabled="false">
-                                                    <Anchor point="TOPLEFT" relativeTo="$(parent)Header" relativePoint="BOTTOMLEFT" offsetX="0" offsetY="5"/>
-                                                    <Anchor point="BOTTOMRIGHT" offsetX="0" offsetY="0"/>
+                                                    <Anchor point="TOPLEFT" relativeTo="$(parent)Header" relativePoint="BOTTOMLEFT" offsetX="5" offsetY="5"/>
+                                                    <Anchor point="BOTTOMRIGHT" offsetX="-5" offsetY="-5"/>
+                                                    <OnInitialized>
+                                                        self:SetText("")
+                                                    </OnInitialized>
                                                 </EditBox>
                                             </Controls>
                                         </Control>
@@ -128,8 +134,7 @@
                                             <Anchor point="TOPLEFT" offsetX="660" offsetY="0"/>
                                             <Dimensions x="220" y="800"/>
                                             
-                                            <Controls>
-                                                <Label name="$(parent)Header" font="ZoFontWinH4" color="FFFF00" 
+                                            <Controls>                                                <Label name="$(parent)Header" font="ZoFontWinH4" color="FFFF00" 
                                                        horizontalAlignment="TEXT_ALIGN_CENTER" text="Jewelry Crafting">
                                                     <Anchor point="TOPLEFT" offsetX="0" offsetY="5"/>
                                                     <Anchor point="TOPRIGHT" offsetX="0" offsetY="5"/>
@@ -138,8 +143,11 @@
                                                 <EditBox name="$(parent)TextArea" font="ZoFontGameBold" color="FFFFFF" 
                                                          inherits="ZO_DefaultEditMultiLineForBackdrop" 
                                                          maxInputCharacters="50000" editEnabled="false">
-                                                    <Anchor point="TOPLEFT" relativeTo="$(parent)Header" relativePoint="BOTTOMLEFT" offsetX="0" offsetY="5"/>
-                                                    <Anchor point="BOTTOMRIGHT" offsetX="0" offsetY="0"/>
+                                                    <Anchor point="TOPLEFT" relativeTo="$(parent)Header" relativePoint="BOTTOMLEFT" offsetX="5" offsetY="5"/>
+                                                    <Anchor point="BOTTOMRIGHT" offsetX="-5" offsetY="-5"/>
+                                                    <OnInitialized>
+                                                        self:SetText("")
+                                                    </OnInitialized>
                                                 </EditBox>
                                             </Controls>
                                         </Control>
