@@ -1,50 +1,102 @@
 <GuiXml>
   <Controls>
-    <TopLevelControl name="ResearchDumpWindow" clampedToScreen="true" movable="true" mouseEnabled="true" hidden="true">
-      <Dimensions x="760" y="520" />
+    <TopLevelControl name="ResearchDumpWindow"
+                     clampedToScreen="true"
+                     movable="true"
+                     mouseEnabled="true"
+                     keyboardEnabled="true"
+                     hidden="true">
+      <Dimensions x="1040" y="600" />
       <Anchor point="TOPRIGHT" relativeTo="GuiRoot" offsetX="-50" offsetY="80" />
+      <!-- Keep if you're still using the ESC toggle handler -->
+      <OnKeyDown>ResearchDump_OnKeyDown(self, key, ctrl, alt, shift, command)</OnKeyDown>
+
       <Controls>
+
+        <!-- Backdrop -->
         <Backdrop name="$(parent)BG" inherits="ZO_DefaultBackdrop" />
 
-        <Label name="$(parent)Title" font="ZoFontWinH1"
+        <!-- Title -->
+        <Label name="$(parent)Title"
+               font="ZoFontWinH1"
                color="INTERFACE_COLOR_TYPE_TEXT_COLORS:INTERFACE_TEXT_COLOR_HIGHLIGHT"
                text="ResearchDump">
           <Anchor point="TOPLEFT" offsetX="12" offsetY="12"/>
-          <Anchor point="TOPRIGHT" offsetX="-12" offsetY="12"/>
+          <Anchor point="TOPRIGHT" offsetX="-48" offsetY="12"/>
         </Label>
 
-        <!-- Section: Research / Traits -->
-        <Label name="$(parent)ResearchHeader" font="ZoFontWinH3" text="Research / Traits">
-          <Anchor point="TOPLEFT" relativeTo="$(parent)Title" relativePoint="BOTTOMLEFT" offsetY="12"/>
-          <Anchor point="TOPRIGHT" relativeTo="$(parent)Title" relativePoint="BOTTOMRIGHT" offsetY="12"/>
-        </Label>
+        <!-- Close button -->
+        <Button name="$(parent)Close" inherits="ZO_CloseButton">
+          <Anchor point="TOPRIGHT" relativeTo="$(parent)" offsetX="-12" offsetY="10"/>
+          <OnClicked>ResearchDump_Toggle()</OnClicked>
+        </Button>
 
-        <!-- Use exactly TWO anchors: TOPLEFT + BOTTOMRIGHT -->
-        <Scroll name="$(parent)ResearchScroll">
-          <Anchor point="TOPLEFT"  relativeTo="$(parent)ResearchHeader" relativePoint="BOTTOMLEFT" offsetY="8"/>
-          <!-- leave room at the bottom for the Skills section by pulling the BR up by ~220 px -->
-          <Anchor point="BOTTOMRIGHT" relativeTo="$(parent)" offsetX="-12" offsetY="-232"/>
+        <!-- ======================= LEFT COLUMN: Skill Levels ======================= -->
+        <Control name="$(parent)LeftPane">
+          <Dimensions x="260" />
+          <Anchor point="TOPLEFT"   relativeTo="$(parent)Title" relativePoint="BOTTOMLEFT" offsetX="8"  offsetY="10"/>
+          <Anchor point="BOTTOMLEFT" relativeTo="$(parent)"      relativePoint="BOTTOMLEFT" offsetX="8"  offsetY="-12"/>
+
           <Controls>
-            <Label name="ResearchDumpWindowBodyResearch" font="ZoFontGame" width="720">
-              <Anchor point="TOPLEFT" offsetX="8" offsetY="8"/>
+            <Label name="$(parent)SkillsHeader"
+                   font="ZoFontWinH3"
+                   text="Skill Levels">
+              <Anchor point="TOPLEFT"  offsetX="0" offsetY="0"/>
+              <Anchor point="TOPRIGHT" offsetX="0" offsetY="0"/>
+            </Label>
+
+            <!-- Keep this exact name; your Lua already fills it -->
+            <Label name="ResearchDumpWindowBodySkills"
+                   font="ZoFontGame"
+                   wrapMode="NONE"
+                   maxLineCount="0"
+                   horizontalAlignment="LEFT"
+                   verticalAlignment="TOP">
+              <Anchor point="TOPLEFT"     relativeTo="$(parent)SkillsHeader" relativePoint="BOTTOMLEFT"  offsetX="0" offsetY="8"/>
+              <Anchor point="BOTTOMRIGHT" relativeTo="$(parent)"             relativePoint="BOTTOMRIGHT" offsetX="0" offsetY="0"/>
             </Label>
           </Controls>
-        </Scroll>
+        </Control>
 
-        <!-- Section: Tradeskill Levels -->
-        <Label name="$(parent)SkillsHeader" font="ZoFontWinH3" text="Crafting Skill Levels">
-          <Anchor point="TOPLEFT"  relativeTo="$(parent)ResearchScroll" relativePoint="BOTTOMLEFT" offsetY="12"/>
-          <Anchor point="TOPRIGHT" relativeTo="$(parent)ResearchScroll" relativePoint="BOTTOMRIGHT" offsetY="12"/>
-        </Label>
+        <!-- ======================= MIDDLE COLUMN: Research Totals ======================= -->
+        <Control name="$(parent)MiddlePane">
+          <Anchor point="TOPLEFT"     relativeTo="$(parent)LeftPane" relativePoint="TOPRIGHT"    offsetX="8"  offsetY="0"/>
+          <Anchor point="TOPRIGHT"    relativeTo="$(parent)"         relativePoint="TOPRIGHT"    offsetX="-320" offsetY="0"/>
+          <Anchor point="BOTTOMLEFT"  relativeTo="$(parent)LeftPane" relativePoint="BOTTOMRIGHT" offsetX="8"  offsetY="0"/>
+          <Anchor point="BOTTOMRIGHT" relativeTo="$(parent)"         relativePoint="BOTTOMRIGHT" offsetX="-320" offsetY="-12"/>
 
-        <Backdrop name="$(parent)SkillsBG" inherits="ZO_DefaultBackdrop">
-          <Anchor point="TOPLEFT"  relativeTo="$(parent)SkillsHeader" relativePoint="BOTTOMLEFT" offsetY="8" />
-          <Anchor point="BOTTOMRIGHT" relativeTo="$(parent)" offsetX="-12" offsetY="-12" />
-        </Backdrop>
+          <Controls>
+            <!-- Keep this exact name; your Lua writes into its ScrollChild -->
+            <Control name="ResearchDumpWindowResearchScroll" inherits="ZO_ScrollContainer">
+              <Anchor point="TOPLEFT" offsetX="0" offsetY="0"/>
+              <Anchor point="BOTTOMRIGHT" offsetX="0" offsetY="0"/>
+            </Control>
+          </Controls>
+        </Control>
 
-        <Label name="ResearchDumpWindowBodySkills" font="ZoFontGame" width="720">
-          <Anchor point="TOPLEFT" relativeTo="$(parent)SkillsHeader" relativePoint="BOTTOMLEFT" offsetX="8" offsetY="14"/>
-        </Label>
+        <!-- ======================= RIGHT COLUMN: Items/Traits Needed ======================= -->
+        <Control name="$(parent)RightPane">
+          <Dimensions x="300" />
+          <Anchor point="TOPRIGHT"    relativeTo="$(parent)" relativePoint="TOPRIGHT"    offsetX="-8"  offsetY="10"/>
+          <Anchor point="BOTTOMRIGHT" relativeTo="$(parent)" relativePoint="BOTTOMRIGHT" offsetX="-8"  offsetY="-12"/>
+
+          <Controls>
+            <Label name="$(parent)TraitsHeader"
+                   font="ZoFontWinH3"
+                   text="Items / Traits Needed">
+              <Anchor point="TOPLEFT"  offsetX="0" offsetY="0"/>
+              <Anchor point="TOPRIGHT" offsetX="0" offsetY="0"/>
+            </Label>
+
+            <!-- New scroll for per-crafting missing traits/items.
+                 Your Lua can GetNamedChild("ScrollChild") and populate it dynamically. -->
+            <Control name="ResearchDumpWindowTraitsScroll" inherits="ZO_ScrollContainer">
+              <Anchor point="TOPLEFT"     relativeTo="$(parent)TraitsHeader" relativePoint="BOTTOMLEFT" offsetX="0" offsetY="8"/>
+              <Anchor point="BOTTOMRIGHT" offsetX="0" offsetY="0"/>
+            </Control>
+          </Controls>
+        </Control>
+
       </Controls>
     </TopLevelControl>
   </Controls>

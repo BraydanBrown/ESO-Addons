@@ -1,7 +1,7 @@
 ## Title: ResearchDump
 ## Author: You
 ## Description: Minimal tracker for active research, known traits, and crafting skill levels.
-## Version: 0.2
+## Version: 0.3
 ## APIVersion: 101042 101043 101044 101045
 ## SavedVariables: ResearchDump_SV
 Bindings.xml
