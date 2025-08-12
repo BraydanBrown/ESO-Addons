@@ -1,7 +1,9 @@
 <Bindings>
-    <Category name="RESEARCH_DUMP">
-        <Action name="RESEARCH_DUMP_TOGGLE">
-            <Down>ResearchDump_ToggleShoppingList()</Down>
-        </Action>
+  <Layer name="SI_KEYBINDINGS_LAYER_GENERAL">
+    <Category name="ResearchDump">
+      <Action name="RESEARCHDUMP_TOGGLE">
+        <Down>ResearchDump_Toggle()</Down>
+      </Action>
     </Category>
+  </Layer>
 </Bindings>
